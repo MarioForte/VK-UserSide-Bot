@@ -1,6 +1,6 @@
 # VK-UserSide-Bot
  
-Данный бот был создан, основываясь на идее [Flittis](http://https://github.com/Flittis "Flittis").
+Данный бот был создан, основываясь на идее [Flittis](https://github.com/Flittis "Flittis").
 
 ### Текущий релизный функционал составляет:
 
