@@ -34,7 +34,6 @@ toDelete = []
 startedContest = {}
 contestPeerId = {}
 contestMsgId = {}
-contestForAll = {}
 contestInstruction = {}
 setupTimer = {}
 contestList = {}
@@ -143,23 +142,14 @@ for event in longpoll.listen():
                         vk.users.get(user_ids=myId)[0].get('first_name') + ', не пропусти его, котик ♥',
                 forward_messages=event.message_id)
     if event.type == VkEventType.MESSAGE_NEW and event.text.lower().startswith(
-            startMyContestTrigger) and (event.from_me == True or contestForAll.get(event.peer_id) == 1) \
-            and (startedContest.get(event.peer_id) is False or
+            startMyContestTrigger) and event.from_me and (startedContest.get(event.peer_id) is False or
                                                           startedContest.get(event.peer_id) is None):
         if len(event.text) > len(startMyContestTrigger) and event.text.split(' ')[1].isdigit() is True:
             setupTimer.update({event.peer_id: int(event.text.split(' ')[1])})
-            try:
-                vk.messages.delete(message_ids=event.message_id, delete_for_all=1)
-            except vk_api.exceptions.ApiError:
-                pass
+            vk.messages.delete(message_ids=event.message_id, delete_for_all=1)
             try:
                 contestInstruction.update({event.peer_id: ' '.join(
                     event.text.split(' ')[2:len(event.text.split(' '))])})
-                if not event.user_id == myId:
-                    vk.messages.send(
-                        peer_id=event.peer_id,
-                        random_id=random.randint(1, 922337203685477580),
-                        message='[id' + str(event.user_id) + '|@' + str(event.user_id) + '] запустил начало конкурса.')
                 vk.messages.send(
                     peer_id=event.peer_id,
                     random_id=random.randint(1, 922337203685477580),
