@@ -32,7 +32,7 @@ requests.exceptions.ReadTimeout: HTTPSConnectionPool(host='im.vk.com', port=443)
 - Использование:
 
 1. - Закидываем start.sh в одну папку с main.py
-2. - Делаем chmod +x start.sh
+2. - Делаем `chmod +x start.sh` 
 3. - Запускаем `./start.sh` или `nohup ./start.sh` 
 (второе для того, чтобы процесс не убивался при закрытии терминала)
 
