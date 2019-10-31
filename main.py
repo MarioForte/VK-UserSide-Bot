@@ -29,7 +29,7 @@ longpoll = VkLongPoll(vk_session)
 vk = vk_session.get_api()
 
 pastSafe = None
-argNumber = None
+toDeleteCount = None
 toDelete = []
 startedContest = {}
 contestPeerId = {}
@@ -39,7 +39,11 @@ setupTimer = {}
 contestList = {}
 contestMemberList = {}
 
-def msgDelete():
+async def msgDelete():
+    for n in vk.messages.getHistory(peer_id=event.peer_id).get('items'):
+        if n['from_id'] == myId and len(toDelete) < toDeleteCount:
+            toDelete.append(n['id'])
+    toDelete.append(event.message_id)
     try:
         vk.messages.delete(message_ids=str(toDelete),
                            delete_for_all=1)
@@ -47,7 +51,25 @@ def msgDelete():
         vk.messages.delete(message_ids=str(toDelete), delete_for_all=0)
     toDelete.clear()
 
-async def contestMember(cmId):
+async def msgReplaceDelete():
+    for n in vk.messages.getHistory(peer_id=event.peer_id).get('items'):
+        if n['from_id'] == myId and len(toDelete) < toDeleteCount:
+            toDelete.append(n['id'])
+    toDelete.append(event.message_id)
+    for h in toDelete[::-1]:
+        if not h == event.message_id:
+            try:
+                vk.messages.edit(peer_id=event.peer_id, message_id=h, message='ᅠ')
+            except vk_api.exceptions.Captcha:
+                break
+    try:
+        vk.messages.delete(message_ids=str(toDelete),
+                           delete_for_all=1)
+    except vk_api.exceptions.ApiError:
+        vk.messages.delete(message_ids=str(toDelete), delete_for_all=0)
+    toDelete.clear()
+
+def contestMember(cmId):
     p = 0
     localPeerId = cmId
     for h in contestMemberList.get(localPeerId):
@@ -59,7 +81,8 @@ async def contestMember(cmId):
         p = p + 1
     return contestList[localPeerId]
 
-async def contestValidator():
+
+def contestValidator():
     if event.peer_id == contestPeerId.get(event.text):
         return True
     else:
@@ -75,6 +98,7 @@ async def contestCleaner(ccId):
     setupTimer.pop(localPeerId)
     contestInstruction.pop(localPeerId)
 
+
 def contestUpdater(cuId):
     global setupTimer, startedContest
     localPeerId = cuId
@@ -86,11 +110,11 @@ def contestUpdater(cuId):
                              message='Ого! Запущено начало розыгрыша. \nДля принятия участия введите: ' +
         contestInstruction.get(localPeerId) + '\n\n До окончания розыгрыша: ' + str(
         setupTimer.get(localPeerId)) + 'мин.\n\nУчастники в розыгрыше: '
-                                     +', '.join(asyncio.run(contestMember(localPeerId))))
+                                     +', '.join(contestMember(localPeerId)))
         except IndexError:
             asyncio.run(contestCleaner(localPeerId))
         if setupTimer.get(localPeerId) == 0:
-            if not asyncio.run(contestMember(localPeerId)):
+            if not contestMember(localPeerId):
                 vk.messages.send(
                     peer_id=localPeerId,
                     random_id=random.randint(1, 922337203685477580),
@@ -102,7 +126,7 @@ def contestUpdater(cuId):
                 vk.messages.send(
                     peer_id=localPeerId,
                     random_id=random.randint(1, 922337203685477580),
-                    message='В розыгрыше побеждает ' + random.choice(asyncio.run(contestMember(localPeerId))) +
+                    message='В розыгрыше побеждает ' + random.choice(contestMember(localPeerId)) +
                             '\nПоздравляем!',
                     reply_to=contestMsgId.get(localPeerId))
                 asyncio.run(contestCleaner(localPeerId))
@@ -112,24 +136,30 @@ def contestUpdater(cuId):
 for event in longpoll.listen():
     if event.type == VkEventType.MESSAGE_NEW and event.text.lower().startswith(triggerWord) and event.from_me and len(
             event.text.split()) is 1:
-        if len(event.text) > len(
-                triggerWord):
+        if len(event.text) > len(triggerWord):
             if event.text[len(triggerWord):] is '1':
-                argNumber = 2
+                toDeleteCount = 2
+                asyncio.run(msgDelete())
             else:
                 if event.text[len(triggerWord):].isdigit() is True:
-                    argNumber = int(event.text[len(
-                        triggerWord):]) + 1
+                    toDeleteCount = int(event.text[len(triggerWord):]) + 1
+                    asyncio.run(msgDelete())
         else:
-            argNumber = 2
-            pastSafe = True
-        if event.text[len(triggerWord):].isdigit() is True or pastSafe is True:
-            for n in vk.messages.getHistory(peer_id=event.peer_id).get('items'):
-                if n['from_id'] == myId and len(toDelete) < argNumber:
-                    toDelete.append(n['id'])
-            toDelete.append(event.message_id)
-            pastSafe = None
-            msgDelete()
+            toDeleteCount = 2
+            asyncio.run(msgDelete())
+    if event.type == VkEventType.MESSAGE_NEW and event.text.lower().startswith(triggerWord + '-') and event.from_me \
+            and len(event.text.split()) is 1:
+        if len(event.text) > (len(triggerWord) + 1):
+            if event.text[(len(triggerWord) + 1):] is '1':
+                toDeleteCount = 2
+                asyncio.run(msgReplaceDelete())
+            else:
+                if event.text[(len(triggerWord) + 1):].isdigit() is True:
+                    toDeleteCount = int(event.text[(len(triggerWord) + 1):]) + 1
+                    asyncio.run(msgReplaceDelete())
+        else:
+            toDeleteCount = 2
+            asyncio.run(msgReplaceDelete())
     if event.type == VkEventType.MESSAGE_NEW and event.from_chat and any(
             contestTriggerWord in event.text.lower() for contestTriggerWord in
             contestTriggerList):
@@ -168,7 +198,7 @@ for event in longpoll.listen():
         startedContest.update({event.peer_id: True})
         thread = threading.Thread(target=contestUpdater, args=(event.peer_id,))
         thread.start()
-    if event.type == VkEventType.MESSAGE_NEW and event.from_chat and asyncio.run(contestValidator()) is True:
+    if event.type == VkEventType.MESSAGE_NEW and event.from_chat and contestValidator() is True:
         if event.user_id not in contestMemberList.get(event.peer_id):
             contestMemberList.get(event.peer_id).append(event.user_id)
             try:
@@ -177,6 +207,6 @@ for event in longpoll.listen():
                                          contestInstruction.get(event.peer_id) + '\n\n До окончания розыгрыша: ' + str(
                                      setupTimer.get(event.peer_id)) +
                                     'мин.\n\nУчастники в розыгрыше: ' +
-                                         ', '.join(asyncio.run(contestMember(event.peer_id))))
+                                         ', '.join(contestMember(event.peer_id)))
             except vk_api.exceptions.ApiError:
                 asyncio.run(contestCleaner(event.user_id))
