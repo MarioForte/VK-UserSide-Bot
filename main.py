@@ -62,6 +62,8 @@ async def msgReplaceDelete():
                 vk.messages.edit(peer_id=event.peer_id, message_id=h, message='ᅠ')
             except vk_api.exceptions.Captcha:
                 break
+            except vk_api.exceptions.ApiError:
+                pass
     try:
         vk.messages.delete(message_ids=str(toDelete),
                            delete_for_all=1)
