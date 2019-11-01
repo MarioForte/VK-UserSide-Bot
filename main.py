@@ -97,6 +97,7 @@ async def contestCleaner(ccId):
     contestList.pop(localPeerId)
     setupTimer.pop(localPeerId)
     contestInstruction.pop(localPeerId)
+    contestPeerId = {key:val for key, val in contestPeerId.items() if val != localPeerId}
 
 
 def contestUpdater(cuId):
@@ -111,25 +112,32 @@ def contestUpdater(cuId):
         contestInstruction.get(localPeerId) + '\n\n До окончания розыгрыша: ' + str(
         setupTimer.get(localPeerId)) + 'мин.\n\nУчастники в розыгрыше: '
                                      +', '.join(contestMember(localPeerId)))
-        except IndexError:
+        except vk_api.exceptions.ApiError:
             asyncio.run(contestCleaner(localPeerId))
+            break
         if setupTimer.get(localPeerId) == 0:
             if not contestMember(localPeerId):
-                vk.messages.send(
-                    peer_id=localPeerId,
-                    random_id=random.randint(1, 922337203685477580),
-                    message='В розыгрыше нет победителя, в связи с отсутствием участников!',
-                    reply_to=contestMsgId.get(localPeerId))
-                asyncio.run(contestCleaner(localPeerId))
+                try:
+                    vk.messages.send(
+                        peer_id=localPeerId,
+                        random_id=random.randint(1, 922337203685477580),
+                        message='В розыгрыше нет победителя, в связи с отсутствием участников!',
+                        reply_to=contestMsgId.get(localPeerId))
+                    asyncio.run(contestCleaner(localPeerId))
+                except vk_api.exceptions.ApiError:
+                    asyncio.run(contestCleaner(localPeerId))
                 break
             else:
-                vk.messages.send(
-                    peer_id=localPeerId,
-                    random_id=random.randint(1, 922337203685477580),
-                    message='В розыгрыше побеждает ' + random.choice(contestMember(localPeerId)) +
-                            '\nПоздравляем!',
-                    reply_to=contestMsgId.get(localPeerId))
-                asyncio.run(contestCleaner(localPeerId))
+                try:
+                    vk.messages.send(
+                        peer_id=localPeerId,
+                        random_id=random.randint(1, 922337203685477580),
+                        message='В розыгрыше побеждает ' + random.choice(contestMember(localPeerId)) +
+                                '\nПоздравляем!',
+                        reply_to=contestMsgId.get(localPeerId))
+                    asyncio.run(contestCleaner(localPeerId))
+                except vk_api.exceptions.ApiError:
+                    asyncio.run(contestCleaner(localPeerId))
                 break
 
 
@@ -174,7 +182,8 @@ for event in longpoll.listen():
     if event.type == VkEventType.MESSAGE_NEW and event.text.lower().startswith(
             startMyContestTrigger) and event.from_me and (startedContest.get(event.peer_id) is False or
                                                           startedContest.get(event.peer_id) is None):
-        if len(event.text) > len(startMyContestTrigger) and event.text.split(' ')[1].isdigit() is True:
+        if len(event.text) > len(startMyContestTrigger) and event.text.split(' ')[1].isdigit() is True \
+                and not event.text.split(' ')[1] == '0':
             setupTimer.update({event.peer_id: int(event.text.split(' ')[1])})
             vk.messages.delete(message_ids=event.message_id, delete_for_all=1)
             try:
@@ -188,7 +197,7 @@ for event in longpoll.listen():
                         '\n\n До окончания розыгрыша: ' + str(setupTimer.get(event.peer_id)) +
                         'мин.\n\nУчастники в розыгрыше: ')
             except IndexError:
-                asyncio.run(contestCleaner(event.user_id))
+                asyncio.run(contestCleaner(event.peer_id))
     if event.type == VkEventType.MESSAGE_NEW and event.from_me and \
                         event.text.startswith('Ого!') and startedContest.get(event.peer_id) is None:
         contestPeerId.update({contestInstruction.get(event.peer_id): event.peer_id})
@@ -209,4 +218,4 @@ for event in longpoll.listen():
                                     'мин.\n\nУчастники в розыгрыше: ' +
                                          ', '.join(contestMember(event.peer_id)))
             except vk_api.exceptions.ApiError:
-                asyncio.run(contestCleaner(event.user_id))
+                asyncio.run(contestCleaner(event.peer_id))
