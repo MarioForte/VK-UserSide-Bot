@@ -85,7 +85,7 @@ def contestMember(cmId):
 
 
 def contestValidator():
-    if event.peer_id == contestPeerId.get(event.text):
+    if event.peer_id == contestPeerId.get(event.text.lower()):
         return True
     else:
         return False
@@ -190,7 +190,7 @@ for event in longpoll.listen():
             vk.messages.delete(message_ids=event.message_id, delete_for_all=1)
             try:
                 contestInstruction.update({event.peer_id: ' '.join(
-                    event.text.split(' ')[2:len(event.text.split(' '))])})
+                    event.text.split(' ')[2:len(event.text.split(' '))]).lower()})
                 vk.messages.send(
                     peer_id=event.peer_id,
                     random_id=random.randint(1, 922337203685477580),
